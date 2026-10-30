@@ -23,8 +23,9 @@ namespace Student_Info
     {
         private State _currentState = State.View;
         private readonly IStudentDataServices _studentDataServices;
-        private List<Model.StudentModel> _students = new List<Model.StudentModel>();
+        private List<StudentModel> _students = new List<StudentModel>();
         private StudentModel _selectedStudent;
+
         public Form1(IStudentDataServices studentDataServices)
         {
             _studentDataServices = studentDataServices;
@@ -44,12 +45,15 @@ namespace Student_Info
             ResetButtons();
             EnableFields(false);
         }
-        private async Task txtSearch_TextChanged(object sender, EventArgs e)
+
+       private async void txtSearch_TextChanged_1(object sender, EventArgs e)
         {
             var search = txtSearch.Text.Trim();
             var results = await SearchStudentsAsync(search);
             DisplayStudents(results);
         }
+
+
         private void dataGridView2_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex >= 0 && e.RowIndex < _students.Count)
@@ -84,7 +88,7 @@ namespace Student_Info
             _currentState = State.Update;
         }
 
-        private void btnDelete_Click(object sender, EventArgs e)
+        private async void btnDelete_Click_1(object sender, EventArgs e)
         {
             ResetButtons();
             _currentState = State.View;
@@ -92,15 +96,32 @@ namespace Student_Info
             var confirmResult
                 = MessageBox.Show("Are you sure to delete this student?",
                 "Confirm Delete", MessageBoxButtons.YesNo);
-            if (confirmResult == DialogResult.Yes)
+            if (confirmResult == DialogResult.No)
             {
                 ResetButtons();
                 ClearFields();
                 return;
-
             }
 
+            await DeleteStudent();
+
         }
+
+
+        private async void btnSave_Click_1(object sender, EventArgs e)
+        {
+
+            if (!ValidateFields()) return;
+
+            if (_currentState == State.Add) await AddNewStudent();
+            else if (_currentState == State.Update) await EditStudent();
+
+            ResetButtons();
+            _currentState = State.View;
+            EnableFields(false);
+
+        }
+
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
@@ -108,38 +129,30 @@ namespace Student_Info
             ClearFields();
         }
 
-        private async Task btnSave_Click(object sender, EventArgs e)
-        {
-            if (_currentState == State.Add) await AddNewStudent();
-            else if (_currentState == State.Update) await EditStudent();
 
-            ResetButtons();
-            _currentState = State.View;
-            EnableFields(false);
-        }
-
-        private void PopulateAcadLevelDropdown(List<Model.AcadLevelModel> acadLevels)
+        private void PopulateAcadLevelDropdown(List<AcadLevelModel> acadLevels)
         {
             cmbAcadLevel.DataSource = acadLevels;
             cmbAcadLevel.DisplayMember = "Name";
             cmbAcadLevel.ValueMember = "Id";
         }
 
-        private void PopulateSectionDropdown(List<Model.SectionModel> sections)
+        private void PopulateSectionDropdown(List<SectionModel> sections)
         {
             cmbSection.DataSource = sections;
             cmbSection.DisplayMember = "Name";
             cmbSection.ValueMember = "Id";
         }
 
-        private void DisplayStudents(List<Model.StudentModel> students)
+        private void DisplayStudents(List<StudentModel> students)
         {
             _students = students;
             dataGridView2.Rows.Clear();
 
-            foreach (var student in students)
+            foreach (var student in _students)
             {
-                dataGridView2.Rows.Add(student.Id,
+                dataGridView2.Rows.Add(
+                    student.Id,
                     student.Lastname,
                     student.Firstname,
                     student.Middlename,
@@ -150,7 +163,8 @@ namespace Student_Info
                     );
             }
         }
-        private async Task<List<Model.StudentModel>> SearchStudentsAsync(string search)
+
+        private async Task<List<StudentModel>> SearchStudentsAsync(string search)
         {
             return await _studentDataServices.SearchStudentsAsync(search);
         }
@@ -180,6 +194,7 @@ namespace Student_Info
                 MessageBox.Show("An error occurred while adding the student.");
             }
         }
+
         private async Task EditStudent()
         {
             try
@@ -219,13 +234,13 @@ namespace Student_Info
             {
                 var id = _selectedStudent.Id;
                 await _studentDataServices.DeleteStudentAsync(id);
-                MessageBox.Show($"{_selectedStudent.Firstname} {_selectedStudent.Lastname} deleted successfully.");
+                MessageBox.Show("Successfully remove student");
                 var students = await _studentDataServices.GetAllStudentsAsync();
                 DisplayStudents(students);
             }
             catch (Exception)
             {
-                MessageBox.Show("An error occurred while deleting the student.");
+                MessageBox.Show("An error occurred while removing the student.");
             }
         }
 
@@ -239,6 +254,7 @@ namespace Student_Info
             cmbSection.SelectedValue = student.SectionId;
             txtEmail.Text = student.Email;
         }
+
         private void ResetButtons()
         {
             btnAdd.Visible = true;
@@ -274,35 +290,17 @@ namespace Student_Info
             student.Lastname = student.Lastname?.Trim();
             student.Firstname = student.Firstname?.Trim();
             student.Middlename = student.Middlename?.Trim();
-            student.Gender = student.Gender?.Trim();
+            student.Gender = student.Gender?.Trim()[0].ToString();
             student.Email = student.Email?.Trim();
         }
 
         private string NormalizeGender(string gender)
         {
-            if (string.IsNullOrWhiteSpace(gender))
-                return "";
-
-            switch (gender.Trim().ToUpperInvariant())
-            {
-                case "M":
-                case "MALE":
-                    return "Male";
-
-                case "F":
-                case "FEMALE":
-                    return "Female";
-
-                case "T":
-                case "TRANSFORMER":
-                    return "Transformer";
-
-                default:
-                    return gender;
-            }
+            return gender == "M" ? "Male" :
+              gender == "F" ? "Female" : gender == "T" ? "Transformer" : null;
         }
 
-        private bool ValidatingFields()
+        private bool ValidateFields()
         {
             if (string.IsNullOrWhiteSpace(txtLastname.Text) ||
                 string.IsNullOrWhiteSpace(txtFirstname.Text) ||
@@ -313,10 +311,13 @@ namespace Student_Info
                 cmbSection.SelectedIndex < 0)
             {
                 MessageBox.Show("Please fill in all required fields.",
-                    "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                                "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
+
             return true;
         }
+
+       
     }
 }
